@@ -1,0 +1,21 @@
+from setuptools import setup, find_packages
+
+setup(
+    name="hackfest_judging",
+    version="0.1",
+    packages=find_packages(),
+    install_requires=[
+        'Flask==2.3.3',
+        'Flask-SQLAlchemy==3.1.1',
+        'Flask-Migrate==4.0.5',
+        'Flask-JWT-Extended==4.5.2',
+        'Flask-Cors==4.0.0',
+        'python-dotenv==1.0.0',
+        'bcrypt==4.0.1',
+        'PyJWT==2.8.0',
+        'SQLAlchemy==2.0.20',
+        'Werkzeug==2.3.7',
+        'gunicorn==21.2.0',
+        'psycopg2-binary==2.9.9'
+    ],
+)
