@@ -12,6 +12,7 @@ import ManageCriteriaPage from './pages/ManageCriteriaPage';
 import JudgingPage from './pages/JudgingPage';
 import MyScoresPage from './pages/MyScoresPage';
 import ResultsPage from './pages/ResultsPage';
+import TeamFeedbackPage from './pages/TeamFeedbackPage';
 
 // Create a theme instance for MksU Hackfest 2025
 const theme = createTheme({
