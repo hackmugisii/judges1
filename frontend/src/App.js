@@ -11,6 +11,7 @@ import ManageTeamsPage from './pages/ManageTeamsPage';
 import ManageCriteriaPage from './pages/ManageCriteriaPage';
 import JudgingPage from './pages/JudgingPage';
 import MyScoresPage from './pages/MyScoresPage';
+import ResultsPage from './pages/ResultsPage';
 
 // Create a theme instance for MksU Hackfest 2025
 const theme = createTheme({
@@ -171,6 +172,7 @@ function App() {
               <Route path="/judging" element={<JudgingPage />} />
               <Route path="/judging/:teamId" element={<JudgingPage />} />
               <Route path="/my-scores" element={<MyScoresPage />} />
+              <Route path="/results" element={<ResultsPage />} />
               <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="*" element={<Navigate to="/" replace />} />
