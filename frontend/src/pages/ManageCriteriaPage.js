@@ -233,7 +233,7 @@ export default function ManageCriteriaPage() {
         </Alert>
       </Snackbar>
 
-      {/* Info Card */}
+      {/* Info Card 
       <Paper sx={{ mt: 3, p: 3, bgcolor: 'primary.light', color: 'primary.contrastText' }}>
         <Typography variant="h6" gutterBottom>
           ℹ️ How Criteria Work
@@ -247,7 +247,7 @@ export default function ManageCriteriaPage() {
         <Typography variant="body2">
           3. Judges will only see and score the criteria assigned to them
         </Typography>
-      </Paper>
+      </Paper> */}
     </Box>
   );
 }
