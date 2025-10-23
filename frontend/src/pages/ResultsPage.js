@@ -15,8 +15,12 @@ import {
   Chip,
   Avatar,
   LinearProgress,
+  Button,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
-import { EmojiEvents as TrophyIcon } from '@mui/icons-material';
+import { EmojiEvents as TrophyIcon, Visibility as ViewIcon } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 
 export default function ResultsPage() {
