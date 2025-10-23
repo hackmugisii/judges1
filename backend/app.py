@@ -71,45 +71,45 @@ def create_app(config_name='default'):
     
     # User routes
     @app.route('/api/users', methods=['GET'])
-@jwt_required()
-def get_users():
-    current_user_id = get_jwt_identity()
-    current_user = User.query.get(current_user_id)
-    
-    if not current_user.is_admin:
-        return jsonify({"msg": "Admin access required"}), 403
+    @jwt_required()
+    def get_users():
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
         
-    users = User.query.all()
-    return jsonify([{
-        'id': u.id,
-        'username': u.username,
-        'is_admin': u.is_admin,
-        'created_at': u.created_at.isoformat() if u.created_at else None
-    } for u in users])
+        if not current_user.is_admin:
+            return jsonify({"msg": "Admin access required"}), 403
+            
+        users = User.query.all()
+        return jsonify([{
+            'id': u.id,
+            'username': u.username,
+            'is_admin': u.is_admin,
+            'created_at': u.created_at.isoformat() if u.created_at else None
+        } for u in users])
 
-@app.route('/api/users/<int:id>', methods=['DELETE'])  # ✅ Fixed indentation
-@jwt_required()
-def delete_user(id):
-    current_user_id = get_jwt_identity()
-    current_user = User.query.get(current_user_id)
-    
-    if not current_user.is_admin:
-        return jsonify({"msg": "Admin access required"}), 403
+    @app.route('/api/users/<int:id>', methods=['DELETE'])
+    @jwt_required()
+    def delete_user(id):
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
         
-    # Prevent deleting yourself
-    if current_user_id == id:
-        return jsonify({"msg": "Cannot delete your own account"}), 400
+        if not current_user.is_admin:
+            return jsonify({"msg": "Admin access required"}), 403
+            
+        # Prevent deleting yourself
+        if current_user_id == id:
+            return jsonify({"msg": "Cannot delete your own account"}), 400
+            
+        user = User.query.get_or_404(id)
         
-    user = User.query.get_or_404(id)
-    
-    # Delete related scores first
-    Score.query.filter_by(judge_id=id).delete()
-    
-    # Then delete the user
-    db.session.delete(user)
-    db.session.commit()
-    
-    return jsonify({"msg": "User deleted successfully"})
+        # Delete related scores first
+        Score.query.filter_by(judge_id=id).delete()
+        
+        # Then delete the user
+        db.session.delete(user)
+        db.session.commit()
+        
+        return jsonify({"msg": "User deleted successfully"})
 
     # Criteria routes
     @app.route('/api/criteria', methods=['GET'])
