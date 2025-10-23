@@ -203,6 +203,26 @@ def create_app(config_name='default'):
             'created_at': team.created_at.isoformat()
         }), 201
     
+    @app.route('/api/teams/<int:id>', methods=['DELETE'])
+    @jwt_required()
+    def delete_team(id):
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
+        
+        if not current_user.is_admin:
+            return jsonify({"msg": "Admin access required"}), 403
+            
+        team = Team.query.get_or_404(id)
+        
+        # Delete related scores first
+        Score.query.filter_by(team_id=id).delete()
+        
+        # Then delete the team
+        db.session.delete(team)
+        db.session.commit()
+        
+        return jsonify({"msg": "Team deleted successfully"})
+    
     # Score routes
     @app.route('/api/scores', methods=['POST'])
     @jwt_required()
