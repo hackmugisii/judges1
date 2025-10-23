@@ -18,98 +18,73 @@ import {
   IconButton,
   Snackbar,
   Alert,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Chip,
-  OutlinedInput,
-  FormHelperText,
 } from '@mui/material';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import api from '../services/api';
 
-export default function ManageJudgesPage() {
-  const [judges, setJudges] = useState([]);
-  const [criteria, setCriteria] = useState([]);
+export default function ManageCriteriaPage() {
+  const [criterias, setCriterias] = useState([]);
   const [open, setOpen] = useState(false);
-  const [currentJudge, setCurrentJudge] = useState({ 
-    username: '', 
-    password: '',
-    assigned_criteria: []
+  const [currentCriteria, setCurrentCriteria] = useState({ 
+    name: '', 
+    description: '',
+    max_score: 10
   });
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   useEffect(() => {
-    fetchJudges();
-    fetchCriteria();
+    fetchCriterias();
   }, []);
 
-  const fetchJudges = async () => {
-    try {
-      const response = await api.get('/api/users');
-      setJudges(response.data.filter(user => !user.is_admin));
-    } catch (error) {
-      showSnackbar('Failed to fetch judges', 'error');
-    }
-  };
-
-  const fetchCriteria = async () => {
+  const fetchCriterias = async () => {
     try {
       const response = await api.get('/api/criteria');
-      setCriteria(response.data);
+      setCriterias(response.data);
     } catch (error) {
       showSnackbar('Failed to fetch criteria', 'error');
     }
   };
 
-  const handleOpen = (judge = { username: '', password: '', assigned_criteria: [] }) => {
-    setCurrentJudge(judge);
+  const handleOpen = (criteria = { name: '', description: '', max_score: 10 }) => {
+    setCurrentCriteria(criteria);
     setOpen(true);
   };
 
   const handleClose = () => {
     setOpen(false);
-    setCurrentJudge({ username: '', password: '', assigned_criteria: [] });
+    setCurrentCriteria({ name: '', description: '', max_score: 10 });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      if (currentJudge.id) {
-        await api.put(`/api/users/${currentJudge.id}`, currentJudge);
-        showSnackbar('Judge updated successfully');
+      if (currentCriteria.id) {
+        // Update existing criteria
+        await api.put(`/api/criteria/${currentCriteria.id}`, currentCriteria);
+        showSnackbar('Criteria updated successfully');
       } else {
-        await api.post('/api/auth/register', { ...currentJudge, is_admin: false });
-        showSnackbar('Judge added successfully');
+        // Create new criteria
+        await api.post('/api/criteria', currentCriteria);
+        showSnackbar('Criteria added successfully');
       }
       handleClose();
-      fetchJudges();
+      fetchCriterias();
     } catch (error) {
       showSnackbar(error.response?.data?.msg || 'An error occurred', 'error');
     }
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this judge? This will also delete all their scores.')) {
+    if (window.confirm('Are you sure you want to delete this criteria? This will affect all judges assigned to it.')) {
       try {
-        await api.delete(`/api/users/${id}`);
-        showSnackbar('Judge deleted successfully');
-        fetchJudges();
+        await api.delete(`/api/criteria/${id}`);
+        showSnackbar('Criteria deleted successfully');
+        fetchCriterias();
       } catch (error) {
-        showSnackbar('Failed to delete judge', 'error');
+        showSnackbar('Failed to delete criteria', 'error');
       }
     }
-  };
-
-  const getCriteriaNames = (criteriaIds) => {
-    return criteriaIds
-      .map(id => {
-        const criterion = criteria.find(c => c.id === id);
-        return criterion ? criterion.name : '';
-      })
-      .filter(name => name)
-      .join(', ');
   };
 
   const showSnackbar = (message, severity = 'success') => {
@@ -120,25 +95,24 @@ export default function ManageJudgesPage() {
     setSnackbar({ ...snackbar, open: false });
   };
 
-  const handleCriteriaChange = (event) => {
-    const value = event.target.value;
-    setCurrentJudge({
-      ...currentJudge,
-      assigned_criteria: typeof value === 'string' ? value.split(',') : value
-    });
-  };
-
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" mb={3}>
-        <Typography variant="h4">Manage Judges</Typography>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+        <Box>
+          <Typography variant="h4" gutterBottom>
+            Manage Judging Criteria
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Create and manage the criteria that judges will use to evaluate teams
+          </Typography>
+        </Box>
         <Button
           variant="contained"
           color="primary"
           startIcon={<AddIcon />}
           onClick={() => handleOpen()}
         >
-          Add Judge
+          Add Criteria
         </Button>
       </Box>
 
@@ -146,56 +120,47 @@ export default function ManageJudgesPage() {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>Username</TableCell>
-              <TableCell>Assigned Criteria</TableCell>
-              <TableCell>Actions</TableCell>
+              <TableCell>Criteria Name</TableCell>
+              <TableCell>Description</TableCell>
+              <TableCell align="center">Max Score</TableCell>
+              <TableCell align="center">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {judges.map((judge) => (
-              <TableRow key={judge.id}>
+            {criterias.map((criteria) => (
+              <TableRow key={criteria.id}>
                 <TableCell>
                   <Typography variant="body1" fontWeight={500}>
-                    {judge.username}
+                    {criteria.name}
                   </Typography>
                 </TableCell>
                 <TableCell>
-                  {judge.assigned_criteria && judge.assigned_criteria.length > 0 ? (
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                      {judge.assigned_criteria.map(criteriaId => {
-                        const criterion = criteria.find(c => c.id === criteriaId);
-                        return criterion ? (
-                          <Chip 
-                            key={criteriaId} 
-                            label={criterion.name} 
-                            size="small" 
-                            color="primary"
-                            variant="outlined"
-                          />
-                        ) : null;
-                      })}
-                    </Box>
-                  ) : (
-                    <Typography variant="body2" color="text.secondary">
-                      No criteria assigned
-                    </Typography>
-                  )}
+                  <Typography variant="body2" color="text.secondary">
+                    {criteria.description || 'No description'}
+                  </Typography>
                 </TableCell>
-                <TableCell>
-                  <IconButton onClick={() => handleOpen(judge)} size="small">
+                <TableCell align="center">
+                  <Chip 
+                    label={criteria.max_score} 
+                    color="primary" 
+                    size="small"
+                  />
+                </TableCell>
+                <TableCell align="center">
+                  <IconButton onClick={() => handleOpen(criteria)} size="small">
                     <EditIcon color="primary" />
                   </IconButton>
-                  <IconButton onClick={() => handleDelete(judge.id)} size="small">
+                  <IconButton onClick={() => handleDelete(criteria.id)} size="small">
                     <DeleteIcon color="error" />
                   </IconButton>
                 </TableCell>
               </TableRow>
             ))}
-            {judges.length === 0 && (
+            {criterias.length === 0 && (
               <TableRow>
-                <TableCell colSpan={3} align="center">
+                <TableCell colSpan={4} align="center">
                   <Typography variant="body2" color="text.secondary" py={4}>
-                    No judges yet. Click "Add Judge" to create one.
+                    No criteria yet. Click "Add Criteria" to create one.
                   </Typography>
                 </TableCell>
               </TableRow>
@@ -207,70 +172,42 @@ export default function ManageJudgesPage() {
       <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
         <form onSubmit={handleSubmit}>
           <DialogTitle>
-            {currentJudge.id ? 'Edit Judge' : 'Add New Judge'}
+            {currentCriteria.id ? 'Edit Criteria' : 'Add New Criteria'}
           </DialogTitle>
           <DialogContent>
             <TextField
               margin="normal"
               required
               fullWidth
-              label="Username"
-              value={currentJudge.username}
-              onChange={(e) => setCurrentJudge({ ...currentJudge, username: e.target.value })}
-              autoFocus={!currentJudge.id}
+              label="Criteria Name"
+              value={currentCriteria.name}
+              onChange={(e) => setCurrentCriteria({ ...currentCriteria, name: e.target.value })}
+              autoFocus
+              placeholder="e.g., Innovation, Technical Implementation, Design"
+              helperText="A short, descriptive name for this judging criteria"
             />
             <TextField
               margin="normal"
-              required={!currentJudge.id}
               fullWidth
-              label={currentJudge.id ? "Password (leave blank to keep current)" : "Password"}
-              type="password"
-              value={currentJudge.password}
-              onChange={(e) => setCurrentJudge({ ...currentJudge, password: e.target.value })}
-              helperText={currentJudge.id ? "Only fill this if you want to change the password" : "Create a secure password for the judge"}
+              multiline
+              rows={3}
+              label="Description"
+              value={currentCriteria.description || ''}
+              onChange={(e) => setCurrentCriteria({ ...currentCriteria, description: e.target.value })}
+              placeholder="Describe what judges should look for when scoring this criteria"
+              helperText="Help judges understand what to evaluate"
             />
-            <FormControl fullWidth margin="normal" required={!currentJudge.id}>
-              <InputLabel id="criteria-select-label">Assigned Criteria</InputLabel>
-              <Select
-                labelId="criteria-select-label"
-                multiple
-                value={currentJudge.assigned_criteria || []}
-                onChange={handleCriteriaChange}
-                input={<OutlinedInput label="Assigned Criteria" />}
-                renderValue={(selected) => (
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                    {selected.map((value) => {
-                      const criterion = criteria.find(c => c.id === value);
-                      return criterion ? (
-                        <Chip key={value} label={criterion.name} size="small" />
-                      ) : null;
-                    })}
-                  </Box>
-                )}
-              >
-                {criteria.length === 0 ? (
-                  <MenuItem disabled>
-                    <Typography variant="body2" color="text.secondary">
-                      No criteria available. Please create criteria first.
-                    </Typography>
-                  </MenuItem>
-                ) : (
-                  criteria.map((criterion) => (
-                    <MenuItem key={criterion.id} value={criterion.id}>
-                      <Box>
-                        <Typography variant="body1">{criterion.name}</Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          Max Score: {criterion.max_score}
-                        </Typography>
-                      </Box>
-                    </MenuItem>
-                  ))
-                )}
-              </Select>
-              <FormHelperText>
-                Select which criteria this judge will evaluate
-              </FormHelperText>
-            </FormControl>
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              type="number"
+              label="Maximum Score"
+              value={currentCriteria.max_score}
+              onChange={(e) => setCurrentCriteria({ ...currentCriteria, max_score: parseFloat(e.target.value) })}
+              inputProps={{ min: 1, max: 100, step: 0.5 }}
+              helperText="The highest score a judge can give for this criteria"
+            />
           </DialogContent>
           <DialogActions>
             <Button onClick={handleClose}>Cancel</Button>
@@ -278,9 +215,8 @@ export default function ManageJudgesPage() {
               type="submit" 
               variant="contained" 
               color="primary"
-              disabled={criteria.length === 0}
             >
-              {currentJudge.id ? 'Update' : 'Create'}
+              {currentCriteria.id ? 'Update' : 'Create'}
             </Button>
           </DialogActions>
         </form>
@@ -296,6 +232,22 @@ export default function ManageJudgesPage() {
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      {/* Info Card */}
+      <Paper sx={{ mt: 3, p: 3, bgcolor: 'primary.light', color: 'primary.contrastText' }}>
+        <Typography variant="h6" gutterBottom>
+          ℹ️ How Criteria Work
+        </Typography>
+        <Typography variant="body2" paragraph>
+          1. Create criteria here (e.g., "Innovation", "Design", "Technical Skills")
+        </Typography>
+        <Typography variant="body2" paragraph>
+          2. Go to "Manage Judges" and assign specific criteria to each judge
+        </Typography>
+        <Typography variant="body2">
+          3. Judges will only see and score the criteria assigned to them
+        </Typography>
+      </Paper>
     </Box>
   );
 }
