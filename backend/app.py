@@ -54,14 +54,6 @@ def create_app(config_name='default'):
         )
         user.set_password(data['password'])
         
-        # Assign criteria to the judge (only if not admin)
-        if 'assigned_criteria' in data and not data.get('is_admin', False):
-            criteria_ids = data['assigned_criteria']
-            for criteria_id in criteria_ids:
-                criteria = Criteria.query.get(criteria_id)
-                if criteria:
-                    user.assigned_criteria.append(criteria)
-        
         db.session.add(user)
         db.session.commit()
         
@@ -92,44 +84,8 @@ def create_app(config_name='default'):
             'id': u.id,
             'username': u.username,
             'is_admin': u.is_admin,
-            'assigned_criteria': [c.id for c in u.assigned_criteria],
             'created_at': u.created_at.isoformat() if u.created_at else None
         } for u in users])
-
-    @app.route('/api/users/<int:id>', methods=['PUT'])
-    @jwt_required()
-    def update_user(id):
-        current_user_id = get_jwt_identity()
-        current_user = User.query.get(current_user_id)
-        
-        if not current_user.is_admin:
-            return jsonify({"msg": "Admin access required"}), 403
-            
-        user = User.query.get_or_404(id)
-        data = request.get_json()
-        
-        # Update username if provided
-        if 'username' in data and data['username'] != user.username:
-            if User.query.filter_by(username=data['username']).first():
-                return jsonify({"msg": "Username already exists"}), 400
-            user.username = data['username']
-        
-        # Update password if provided
-        if 'password' in data and data['password']:
-            user.set_password(data['password'])
-        
-        # Update assigned criteria for non-admin users
-        if 'assigned_criteria' in data and not user.is_admin:
-            user.assigned_criteria = []
-            criteria_ids = data['assigned_criteria']
-            for criteria_id in criteria_ids:
-                criteria = Criteria.query.get(criteria_id)
-                if criteria:
-                    user.assigned_criteria.append(criteria)
-        
-        db.session.commit()
-        
-        return jsonify({"msg": "User updated successfully"})
 
     @app.route('/api/users/<int:id>', methods=['DELETE'])
     @jwt_required()
@@ -159,16 +115,7 @@ def create_app(config_name='default'):
     @app.route('/api/criteria', methods=['GET'])
     @jwt_required()
     def get_criterias():
-        current_user_id = get_jwt_identity()
-        current_user = User.query.get(current_user_id)
-        
-        if current_user.is_admin:
-            # Admin sees all criteria
-            criterias = Criteria.query.filter_by(is_active=True).all()
-        else:
-            # Judge only sees assigned criteria
-            criterias = [c for c in current_user.assigned_criteria if c.is_active]
-        
+        criterias = Criteria.query.filter_by(is_active=True).all()
         return jsonify([{
             'id': c.id,
             'name': c.name,
@@ -421,6 +368,56 @@ def create_app(config_name='default'):
         results.sort(key=lambda x: x['total_score'], reverse=True)
         
         return jsonify(results)
+    
+    # Team feedback route - allows teams to see their scores and comments
+    @app.route('/api/team-feedback/<int:team_id>', methods=['GET'])
+    @jwt_required()
+    def get_team_feedback(team_id):
+        """Get detailed feedback for a specific team including all scores and judge comments"""
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
+        
+        # Only admins can view feedback
+        if not current_user.is_admin:
+            return jsonify({"msg": "Admin access required"}), 403
+        
+        team = Team.query.get_or_404(team_id)
+        criterias = Criteria.query.filter_by(is_active=True).all()
+        
+        feedback = {
+            'team_id': team.id,
+            'team_name': team.name,
+            'team_description': team.description,
+            'criteria_feedback': []
+        }
+        
+        for criteria in criterias:
+            scores = Score.query.filter_by(
+                team_id=team.id,
+                criteria_id=criteria.id
+            ).all()
+            
+            judge_feedback = []
+            for score in scores:
+                judge = User.query.get(score.judge_id)
+                judge_feedback.append({
+                    'judge_name': judge.username if judge else 'Unknown',
+                    'score': score.score,
+                    'notes': score.notes,
+                    'created_at': score.created_at.isoformat()
+                })
+            
+            if judge_feedback:
+                avg_score = sum(s.score for s in scores) / len(scores)
+                feedback['criteria_feedback'].append({
+                    'criteria_name': criteria.name,
+                    'criteria_description': criteria.description,
+                    'max_score': criteria.max_score,
+                    'average_score': avg_score,
+                    'judge_feedback': judge_feedback
+                })
+        
+        return jsonify(feedback)
     
     return app
 
