@@ -17,6 +17,7 @@ import {
   MenuItem,
   Grid,
   LinearProgress,
+  TextField,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
@@ -26,6 +27,7 @@ export default function JudgingPage() {
   const [selectedTeam, setSelectedTeam] = useState('');
   const [criteria, setCriteria] = useState([]);
   const [scores, setScores] = useState({});
+  const [notes, setNotes] = useState({});
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
@@ -35,13 +37,19 @@ export default function JudgingPage() {
     try {
       const scoresRes = await api.get('/api/scores/me');
       const userScores = {};
+      const userNotes = {};
+      
       scoresRes.data.forEach(score => {
         if (!userScores[score.team_id]) {
           userScores[score.team_id] = {};
+          userNotes[score.team_id] = {};
         }
         userScores[score.team_id][score.criteria_id] = score.score;
+        userNotes[score.team_id][score.criteria_id] = score.notes || '';
       });
+      
       setScores(userScores);
+      setNotes(userNotes);
     } catch (error) {
       console.error('Error loading scores:', error);
       showSnackbar('Failed to load scores', 'error');
@@ -79,11 +87,14 @@ export default function JudgingPage() {
     try {
       setSubmitting(true);
       
+      const currentNotes = getCurrentNotes()[criteriaId] || '';
+      
       // Save the score to the server
       await api.post('/api/scores', {
         team_id: parseInt(selectedTeam),
         criteria_id: criteriaId,
-        score: parseFloat(value)
+        score: parseFloat(value),
+        notes: currentNotes
       });
       
       // Update local state with the new score
@@ -104,6 +115,42 @@ export default function JudgingPage() {
       setSubmitting(false);
     }
   };
+
+  const handleNotesChange = (criteriaId, value) => {
+    if (!selectedTeam) return;
+    
+    const updatedNotes = {
+      ...notes,
+      [selectedTeam]: {
+        ...(notes[selectedTeam] || {}),
+        [criteriaId]: value
+      }
+    };
+    
+    setNotes(updatedNotes);
+  };
+
+  const handleNotesBlur = async (criteriaId) => {
+    if (!selectedTeam) return;
+    
+    try {
+      const currentScore = getCurrentScores()[criteriaId];
+      const currentNote = getCurrentNotes()[criteriaId] || '';
+      
+      if (currentScore !== undefined && currentScore !== null) {
+        await api.post('/api/scores', {
+          team_id: parseInt(selectedTeam),
+          criteria_id: criteriaId,
+          score: parseFloat(currentScore),
+          notes: currentNote
+        });
+        showSnackbar('Comments saved!', 'success');
+      }
+    } catch (error) {
+      console.error('Error saving notes:', error);
+      showSnackbar('Failed to save comments', 'error');
+    }
+  };
   
   const handleTeamChange = (event) => {
     setSelectedTeam(event.target.value);
@@ -111,6 +158,10 @@ export default function JudgingPage() {
   
   const getCurrentScores = () => {
     return selectedTeam ? (scores[selectedTeam] || {}) : {};
+  };
+
+  const getCurrentNotes = () => {
+    return selectedTeam ? (notes[selectedTeam] || {}) : {};
   };
   
   const getTeamName = (teamId) => {
@@ -171,19 +222,25 @@ export default function JudgingPage() {
               </Typography>
               
               {criteria.map((criterion) => (
-                <Box key={criterion.id} mb={3}>
+                <Box key={criterion.id} mb={4} pb={3} borderBottom="1px solid" borderColor="divider">
                   <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                    <Typography>{criterion.name}</Typography>
-                    <Typography color="textSecondary">
-                      Max: {criterion.max_score} points (Weight: {criterion.weight}x)
+                    <Typography variant="subtitle1" fontWeight={600}>
+                      {criterion.name}
+                    </Typography>
+                    <Typography color="textSecondary" variant="body2">
+                      Max: {criterion.max_score} points
                     </Typography>
                   </Box>
-                  <Box mb={2}>
-                    <Typography variant="body2" color="textSecondary" paragraph>
-                      {criterion.description}
-                    </Typography>
-                  </Box>
-                  <Box display="flex" alignItems="center" gap={2}>
+                  
+                  {criterion.description && (
+                    <Box mb={2}>
+                      <Typography variant="body2" color="text.secondary">
+                        {criterion.description}
+                      </Typography>
+                    </Box>
+                  )}
+                  
+                  <Box display="flex" alignItems="center" gap={2} mb={2}>
                     <Rating
                       name={`score-${selectedTeam}-${criterion.id}`}
                       value={getCurrentScores()[criterion.id] || 0}
@@ -193,12 +250,27 @@ export default function JudgingPage() {
                         handleScoreChange(criterion.id, newValue)
                       }
                       disabled={submitting}
+                      size="large"
                     />
-                    <Typography variant="body2">
+                    <Typography variant="body1" fontWeight="bold">
                       {getCurrentScores()[criterion.id] || 0} / {criterion.max_score}
                     </Typography>
                     {submitting && <CircularProgress size={24} />}
                   </Box>
+
+                  <TextField
+                    fullWidth
+                    multiline
+                    rows={3}
+                    label="Comments (optional but recommended)"
+                    placeholder="Explain your rating. What did the team do well? What could be improved?"
+                    value={getCurrentNotes()[criterion.id] || ''}
+                    onChange={(e) => handleNotesChange(criterion.id, e.target.value)}
+                    onBlur={() => handleNotesBlur(criterion.id)}
+                    variant="outlined"
+                    helperText="Your comments will help teams understand their scores and improve"
+                    sx={{ mt: 1 }}
+                  />
                 </Box>
               ))}
             </CardContent>
