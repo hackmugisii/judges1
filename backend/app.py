@@ -54,6 +54,14 @@ def create_app(config_name='default'):
         )
         user.set_password(data['password'])
         
+        # Assign criteria to the judge (only if not admin)
+        if 'assigned_criteria' in data and not data.get('is_admin', False):
+            criteria_ids = data['assigned_criteria']
+            for criteria_id in criteria_ids:
+                criteria = Criteria.query.get(criteria_id)
+                if criteria:
+                    user.assigned_criteria.append(criteria)
+        
         db.session.add(user)
         db.session.commit()
         
@@ -84,8 +92,44 @@ def create_app(config_name='default'):
             'id': u.id,
             'username': u.username,
             'is_admin': u.is_admin,
+            'assigned_criteria': [c.id for c in u.assigned_criteria],
             'created_at': u.created_at.isoformat() if u.created_at else None
         } for u in users])
+
+    @app.route('/api/users/<int:id>', methods=['PUT'])
+    @jwt_required()
+    def update_user(id):
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
+        
+        if not current_user.is_admin:
+            return jsonify({"msg": "Admin access required"}), 403
+            
+        user = User.query.get_or_404(id)
+        data = request.get_json()
+        
+        # Update username if provided
+        if 'username' in data and data['username'] != user.username:
+            if User.query.filter_by(username=data['username']).first():
+                return jsonify({"msg": "Username already exists"}), 400
+            user.username = data['username']
+        
+        # Update password if provided
+        if 'password' in data and data['password']:
+            user.set_password(data['password'])
+        
+        # Update assigned criteria for non-admin users
+        if 'assigned_criteria' in data and not user.is_admin:
+            user.assigned_criteria = []
+            criteria_ids = data['assigned_criteria']
+            for criteria_id in criteria_ids:
+                criteria = Criteria.query.get(criteria_id)
+                if criteria:
+                    user.assigned_criteria.append(criteria)
+        
+        db.session.commit()
+        
+        return jsonify({"msg": "User updated successfully"})
 
     @app.route('/api/users/<int:id>', methods=['DELETE'])
     @jwt_required()
@@ -115,7 +159,16 @@ def create_app(config_name='default'):
     @app.route('/api/criteria', methods=['GET'])
     @jwt_required()
     def get_criterias():
-        criterias = Criteria.query.filter_by(is_active=True).all()
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
+        
+        if current_user.is_admin:
+            # Admin sees all criteria
+            criterias = Criteria.query.filter_by(is_active=True).all()
+        else:
+            # Judge only sees assigned criteria
+            criterias = [c for c in current_user.assigned_criteria if c.is_active]
+        
         return jsonify([{
             'id': c.id,
             'name': c.name,
