@@ -8,7 +8,7 @@ from werkzeug.security import generate_password_hash
 from datetime import timedelta
 import os
 
-from models import db, User, Team, Criteria, Score
+from .models import db, User, Team, Criteria, Score
 from config import config
 
 def create_app(config_name='default'):
