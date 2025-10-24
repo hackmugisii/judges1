@@ -58,12 +58,13 @@ class Team(db.Model):
     scores = db.relationship('Score', backref='team', lazy=True)
 
 class Criteria(db.Model):
-    __tablename__ = 'criterias'
+    _tablename_ = 'criterias'
     
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
-    max_score = db.Column(db.Float, default=10.0)
+    weight_percentage = db.Column(db.Float, default=10.0)  # NEW - percentage weight
+    max_score = db.Column(db.Float, default=10.0)  # Keep for scoring (e.g., 1-10 scale)
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
