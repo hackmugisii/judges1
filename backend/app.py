@@ -12,7 +12,7 @@ from models import db, User, Team, Criteria, Score
 from config import config
 
 def create_app(config_name='default'):
-    app = Flask(__name__)
+    app = Flask(_name_)
     app.config.from_object(config[config_name])
     
     # Initialize extensions
@@ -111,55 +111,46 @@ def create_app(config_name='default'):
         
         return jsonify({"msg": "User deleted successfully"})
 
+    # Criteria routes
     @app.route('/api/criteria', methods=['GET'])
-@jwt_required()
-def get_criterias():
-    criterias = Criteria.query.filter_by(is_active=True).all()
-    return jsonify([{
-        'id': c.id,
-        'name': c.name,
-        'description': c.description,
-        'max_score': c.max_score,
-        'weight_percentage': c.weight_percentage  # NEW
-    } for c in criterias])
+    @jwt_required()
+    def get_criterias():
+        criterias = Criteria.query.filter_by(is_active=True).all()
+        return jsonify([{
+            'id': c.id,
+            'name': c.name,
+            'description': c.description,
+            'max_score': c.max_score,
+            'weight_percentage': c.weight_percentage
+        } for c in criterias])
+    
     @app.route('/api/criteria', methods=['POST'])
-@jwt_required()
-def create_criteria():
-    current_user_id = get_jwt_identity()
-    current_user = User.query.get(current_user_id)
-    
-    if not current_user.is_admin:
-        return jsonify({"msg": "Admin access required"}), 403
+    @jwt_required()
+    def create_criteria():
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
         
-    data = request.get_json()
-    
-    # Validate that weight_percentage is provided
-    weight = float(data.get('weight_percentage', 10.0))
-    
-    # Optional: Check if total weights exceed 100%
-    existing_criterias = Criteria.query.filter_by(is_active=True).all()
-    total_weight = sum(c.weight_percentage for c in existing_criterias) + weight
-    
-    if total_weight > 100:
-        return jsonify({"msg": f"Total weight would be {total_weight}%. Cannot exceed 100%"}), 400
-    
-    criteria = Criteria(
-        name=data['name'],
-        description=data.get('description', ''),
-        max_score=float(data.get('max_score', 10.0)),
-        weight_percentage=weight  # NEW
-    )
-    
-    db.session.add(criteria)
-    db.session.commit()
-    
-    return jsonify({
-        'id': criteria.id,
-        'name': criteria.name,
-        'description': criteria.description,
-        'max_score': criteria.max_score,
-        'weight_percentage': criteria.weight_percentage  # NEW
-    }), 201
+        if not current_user.is_admin:
+            return jsonify({"msg": "Admin access required"}), 403
+            
+        data = request.get_json()
+        
+        # Validate that weight_percentage is provided
+        weight = float(data.get('weight_percentage', 10.0))
+        
+        # Optional: Check if total weights exceed 100%
+        existing_criterias = Criteria.query.filter_by(is_active=True).all()
+        total_weight = sum(c.weight_percentage for c in existing_criterias) + weight
+        
+        if total_weight > 100:
+            return jsonify({"msg": f"Total weight would be {total_weight}%. Cannot exceed 100%"}), 400
+        
+        criteria = Criteria(
+            name=data['name'],
+            description=data.get('description', ''),
+            max_score=float(data.get('max_score', 10.0)),
+            weight_percentage=weight
+        )
         
         db.session.add(criteria)
         db.session.commit()
@@ -168,7 +159,8 @@ def create_criteria():
             'id': criteria.id,
             'name': criteria.name,
             'description': criteria.description,
-            'max_score': criteria.max_score
+            'max_score': criteria.max_score,
+            'weight_percentage': criteria.weight_percentage
         }), 201
     
     @app.route('/api/criteria/<int:id>', methods=['DELETE'])
@@ -342,67 +334,66 @@ def create_criteria():
         } for s in scores])
     
     # Results route
- @app.route('/api/results', methods=['GET'])
-@jwt_required()
-def get_results():
-    current_user_id = get_jwt_identity()
-    current_user = User.query.get(current_user_id)
-    
-    if not current_user.is_admin:
-        return jsonify({"msg": "Admin access required"}), 403
-        
-    teams = Team.query.all()
-    criterias = Criteria.query.filter_by(is_active=True).all()
-    
-    results = []
-    for team in teams:
-        team_scores = {}
-        weighted_total = 0  # NEW - weighted total out of 100%
-        
-        for criteria in criterias:
-            scores = Score.query.filter_by(
-                team_id=team.id,
-                criteria_id=criteria.id
-            ).all()
-            
-            if scores:
-                # Calculate average score for this criteria
-                avg_score = sum(s.score for s in scores) / len(scores)
-                
-                # Calculate weighted score (percentage earned of this criteria's weight)
-                percentage_earned = (avg_score / criteria.max_score) * criteria.weight_percentage
-                weighted_total += percentage_earned
-                
-                team_scores[criteria.name] = {
-                    'average': avg_score,
-                    'max': criteria.max_score,
-                    'weight_percentage': criteria.weight_percentage,
-                    'percentage_earned': percentage_earned,
-                    'count': len(scores)
-                }
-        
-        results.append({
-            'team_id': team.id,
-            'team_name': team.name,
-            'scores': team_scores,
-            'total_percentage': weighted_total,  # NEW - out of 100%
-            'max_possible': 100.0  # Always 100%
-        })
-    
-    # Sort results by total_percentage (descending)
-    results.sort(key=lambda x: x['total_percentage'], reverse=True)
-    
-    return jsonify(results)
-    
-    # Team feedback route - allows teams to see their scores and comments
-    @app.route('/api/team-feedback/<int:team_id>', methods=['GET'])
+    @app.route('/api/results', methods=['GET'])
     @jwt_required()
-    def get_team_feedback(team_id):
-        """Get detailed feedback for a specific team including all scores and judge comments"""
+    def get_results():
         current_user_id = get_jwt_identity()
         current_user = User.query.get(current_user_id)
         
-        # Only admins can view feedback
+        if not current_user.is_admin:
+            return jsonify({"msg": "Admin access required"}), 403
+            
+        teams = Team.query.all()
+        criterias = Criteria.query.filter_by(is_active=True).all()
+        
+        results = []
+        for team in teams:
+            team_scores = {}
+            weighted_total = 0
+            
+            for criteria in criterias:
+                scores = Score.query.filter_by(
+                    team_id=team.id,
+                    criteria_id=criteria.id
+                ).all()
+                
+                if scores:
+                    # Calculate average score for this criteria
+                    avg_score = sum(s.score for s in scores) / len(scores)
+                    
+                    # Calculate weighted score
+                    percentage_earned = (avg_score / criteria.max_score) * criteria.weight_percentage
+                    weighted_total += percentage_earned
+                    
+                    team_scores[criteria.name] = {
+                        'average': avg_score,
+                        'max': criteria.max_score,
+                        'weight_percentage': criteria.weight_percentage,
+                        'percentage_earned': percentage_earned,
+                        'count': len(scores)
+                    }
+            
+            results.append({
+                'team_id': team.id,
+                'team_name': team.name,
+                'scores': team_scores,
+                'total_percentage': weighted_total,
+                'max_possible': 100.0
+            })
+        
+        # Sort results by total_percentage (descending)
+        results.sort(key=lambda x: x['total_percentage'], reverse=True)
+        
+        return jsonify(results)
+    
+    # Team feedback route
+    @app.route('/api/team-feedback/<int:team_id>', methods=['GET'])
+    @jwt_required()
+    def get_team_feedback(team_id):
+        """Get detailed feedback for a specific team"""
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
+        
         if not current_user.is_admin:
             return jsonify({"msg": "Admin access required"}), 403
         
@@ -446,6 +437,6 @@ def get_results():
     
     return app
 
-if __name__ == '__main__':
+if _name_ == '_main_':
     app = create_app('development')
     app.run(debug=True)
