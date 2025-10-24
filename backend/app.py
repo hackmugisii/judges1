@@ -11,27 +11,45 @@ import os
 from models import db, User, Team, Criteria, Score
 from config import config
 
-def create_app(config_name='default'):
-    app = Flask(_name_)
-    app.config.from_object(config[config_name])
+def create_admin():
+    # Determine environment
+    env = os.environ.get('FLASK_ENV', 'development')
+    app = create_app(env if env in ['development', 'production'] else 'default')
     
-    # Initialize extensions
-    db.init_app(app)
-    CORS(app)
-    jwt = JWTManager(app)
-    
-    # Create database tables
     with app.app_context():
-        db.create_all()
-        # Create admin user if not exists
-        if not User.query.filter_by(username='matoke').first():
-            admin = User(
-                username='matoke',
-                is_admin=True
-            )
-            admin.set_password('Matookee24')
-            db.session.add(admin)
-            db.session.commit()
+        try:
+            # Try to find existing admin
+            admin = User.query.filter_by(username='matoke').first()
+            
+            if admin:
+                print("Admin user 'matoke' already exists.")
+                reset = input("Do you want to reset the password? (yes/no): ").lower()
+                if reset == 'yes':
+                    admin.set_password('Matookee24')
+                    admin.is_admin = True
+                    db.session.commit()
+                    print("✓ Admin password reset to 'Matookee24'")
+                else:
+                    print("No changes made.")
+            else:
+                # Create new admin user
+                admin = User(
+                    username='matoke',
+                    is_admin=True
+                )
+                admin.set_password('Matookee24')
+                db.session.add(admin)
+                db.session.commit()
+                print("✓ Admin user created successfully!")
+                print("  Username: matoke")
+                print("  Password: Matookee24")
+                
+        except Exception as e:
+            print(f"✗ Error: {e}")
+            db.session.rollback()
+
+if __name__ == '__main__':
+    create_admin()
     
     # Auth routes
     @app.route('/api/auth/register', methods=['POST'])
