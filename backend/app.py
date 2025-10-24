@@ -135,6 +135,45 @@ def create_app(config_name='default'):
             print(f"Error in get_users: {str(e)}")
             return jsonify({"msg": f"Error fetching users: {str(e)}"}), 500
 
+    @app.route('/api/users/<int:id>/criteria', methods=['PUT'])
+@jwt_required()
+def update_user_criteria(id):
+    """Update assigned criteria for a judge"""
+    try:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
+        
+        if not current_user.is_admin:
+            return jsonify({"msg": "Admin access required"}), 403
+        
+        user = User.query.get_or_404(id)
+        data = request.get_json()
+        
+        # Get the list of criteria IDs from the request
+        criteria_ids = data.get('criteria_ids', [])
+        
+        # Clear existing assignments
+        user.assigned_criteria = []
+        
+        # Assign new criteria
+        if criteria_ids:
+            criterias = Criteria.query.filter(Criteria.id.in_(criteria_ids)).all()
+            user.assigned_criteria = criterias
+        
+        db.session.commit()
+        
+        return jsonify({
+            'msg': 'Criteria updated successfully',
+            'assigned_criteria': [c.id for c in user.assigned_criteria]
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error in update_user_criteria: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"msg": f"Error updating criteria: {str(e)}"}), 500
+
     @app.route('/api/users/<int:id>', methods=['DELETE'])
     @jwt_required()
     def delete_user(id):
@@ -161,26 +200,31 @@ def create_app(config_name='default'):
             return jsonify({"msg": f"Error deleting user: {str(e)}"}), 500
 
     # Criteria routes
-    @app.route('/api/criteria', methods=['GET'])
-    @jwt_required()
-    def get_criterias():
-        try:
-            print("Fetching criteria...")
-            criterias = Criteria.query.filter_by(is_active=True).all()
-            print(f"Found {len(criterias)} criteria")
-            result = [{
-                'id': c.id,
-                'name': c.name,
-                'description': c.description,
-                'max_score': c.max_score,
-                'weight_percentage': c.weight_percentage
-            } for c in criterias]
-            return jsonify(result)
-        except Exception as e:
-            print(f"Error in get_criterias: {str(e)}")
-            import traceback
-            traceback.print_exc()
-            return jsonify({"msg": f"Error fetching criteria: {str(e)}"}), 500
+   @app.route('/api/users', methods=['GET'])
+@jwt_required()
+def get_users():
+    try:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
+        
+        if not current_user.is_admin:
+            return jsonify({"msg": "Admin access required"}), 403
+            
+        users = User.query.all()
+        return jsonify([{
+            'id': u.id,
+            'username': u.username,
+            'is_admin': u.is_admin,
+            'created_at': u.created_at.isoformat() if u.created_at else None,
+            'assigned_criteria': [c.id for c in u.assigned_criteria] if not u.is_admin else []
+        } for u in users])
+    except Exception as e:
+        print(f"Error in get_users: {str(e)}")
+        return jsonify({"msg": f"Error fetching users: {str(e)}"}), 500
+        
+    except Exception as e:
+        print(f"Error in get_user_criteria: {str(e)}")
+        return jsonify({"msg": f"Error fetching user criteria: {str(e)}"}), 500
     
     @app.route('/api/criteria', methods=['POST'])
     @jwt_required()
