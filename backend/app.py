@@ -342,53 +342,57 @@ def create_criteria():
         } for s in scores])
     
     # Results route
-    @app.route('/api/results', methods=['GET'])
-    @jwt_required()
-    def get_results():
-        current_user_id = get_jwt_identity()
-        current_user = User.query.get(current_user_id)
+ @app.route('/api/results', methods=['GET'])
+@jwt_required()
+def get_results():
+    current_user_id = get_jwt_identity()
+    current_user = User.query.get(current_user_id)
+    
+    if not current_user.is_admin:
+        return jsonify({"msg": "Admin access required"}), 403
         
-        if not current_user.is_admin:
-            return jsonify({"msg": "Admin access required"}), 403
-            
-        teams = Team.query.all()
-        criterias = Criteria.query.filter_by(is_active=True).all()
+    teams = Team.query.all()
+    criterias = Criteria.query.filter_by(is_active=True).all()
+    
+    results = []
+    for team in teams:
+        team_scores = {}
+        weighted_total = 0  # NEW - weighted total out of 100%
         
-        results = []
-        for team in teams:
-            team_scores = {}
-            total_score = 0
-            max_possible = 0
+        for criteria in criterias:
+            scores = Score.query.filter_by(
+                team_id=team.id,
+                criteria_id=criteria.id
+            ).all()
             
-            for criteria in criterias:
-                scores = Score.query.filter_by(
-                    team_id=team.id,
-                    criteria_id=criteria.id
-                ).all()
+            if scores:
+                # Calculate average score for this criteria
+                avg_score = sum(s.score for s in scores) / len(scores)
                 
-                if scores:
-                    avg_score = sum(s.score for s in scores) / len(scores)
-                    team_scores[criteria.name] = {
-                        'average': avg_score,
-                        'max': criteria.max_score,
-                        'count': len(scores)
-                    }
-                    total_score += avg_score
-                    max_possible += criteria.max_score
-            
-            results.append({
-                'team_id': team.id,
-                'team_name': team.name,
-                'scores': team_scores,
-                'total_score': total_score,
-                'max_possible': max_possible,
-                'percentage': (total_score / max_possible * 100) if max_possible > 0 else 0
-            })
+                # Calculate weighted score (percentage earned of this criteria's weight)
+                percentage_earned = (avg_score / criteria.max_score) * criteria.weight_percentage
+                weighted_total += percentage_earned
+                
+                team_scores[criteria.name] = {
+                    'average': avg_score,
+                    'max': criteria.max_score,
+                    'weight_percentage': criteria.weight_percentage,
+                    'percentage_earned': percentage_earned,
+                    'count': len(scores)
+                }
         
-        # Sort results by total score (descending)
-        results.sort(key=lambda x: x['total_score'], reverse=True)
-        
-        return jsonify(results)
+        results.append({
+            'team_id': team.id,
+            'team_name': team.name,
+            'scores': team_scores,
+            'total_percentage': weighted_total,  # NEW - out of 100%
+            'max_possible': 100.0  # Always 100%
+        })
+    
+    # Sort results by total_percentage (descending)
+    results.sort(key=lambda x: x['total_percentage'], reverse=True)
+    
+    return jsonify(results)
     
     # Team feedback route - allows teams to see their scores and comments
     @app.route('/api/team-feedback/<int:team_id>', methods=['GET'])
