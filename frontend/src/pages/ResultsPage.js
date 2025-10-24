@@ -111,13 +111,18 @@ export default function ResultsPage() {
                     {result.team_name}
                   </Typography>
                 </TableCell>
-                <TableCell align="center">
-                  <Chip
-                    label={result.total_score.toFixed(2)}
-                    color="primary"
-                    sx={{ fontWeight: 'bold', minWidth: 80 }}
-                  />
-                </TableCell>
+               <TableCell align="center">
+  <Chip
+    label={${result.total_percentage.toFixed(2)}%}
+    color="primary"
+    sx={{ fontWeight: 'bold', minWidth: 80 }}
+  />
+</TableCell>
+<TableCell align="center">
+  <Typography variant="body2" color="text.secondary">
+    100%
+  </Typography>
+</TableCell>
                 <TableCell align="center">
                   <Typography variant="body2" color="text.secondary">
                     {result.max_possible.toFixed(2)}
