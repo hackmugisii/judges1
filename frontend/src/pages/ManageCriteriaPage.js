@@ -26,11 +26,12 @@ import api from '../services/api';
 export default function ManageCriteriaPage() {
   const [criterias, setCriterias] = useState([]);
   const [open, setOpen] = useState(false);
-  const [currentCriteria, setCurrentCriteria] = useState({ 
-    name: '', 
-    description: '',
-    max_score: 10
-  });
+const [currentCriteria, setCurrentCriteria] = useState({ 
+  name: '', 
+  description: '',
+  max_score: 10,
+  weight_percentage: 10  // NEW
+});
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   useEffect(() => {
@@ -118,54 +119,53 @@ export default function ManageCriteriaPage() {
 
       <TableContainer component={Paper}>
         <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Criteria Name</TableCell>
-              <TableCell>Description</TableCell>
-              <TableCell align="center">Max Score</TableCell>
-              <TableCell align="center">Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {criterias.map((criteria) => (
-              <TableRow key={criteria.id}>
-                <TableCell>
-                  <Typography variant="body1" fontWeight={500}>
-                    {criteria.name}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="body2" color="text.secondary">
-                    {criteria.description || 'No description'}
-                  </Typography>
-                </TableCell>
-                <TableCell align="center">
-                  <Chip 
-                    label={criteria.max_score} 
-                    color="primary" 
-                    size="small"
-                  />
-                </TableCell>
-                <TableCell align="center">
-                  <IconButton onClick={() => handleOpen(criteria)} size="small">
-                    <EditIcon color="primary" />
-                  </IconButton>
-                  <IconButton onClick={() => handleDelete(criteria.id)} size="small">
-                    <DeleteIcon color="error" />
-                  </IconButton>
-                </TableCell>
-              </TableRow>
-            ))}
-            {criterias.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={4} align="center">
-                  <Typography variant="body2" color="text.secondary" py={4}>
-                    No criteria yet. Click "Add Criteria" to create one.
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
+         <TableHead>
+  <TableRow>
+    <TableCell>Criteria Name</TableCell>
+    <TableCell>Description</TableCell>
+    <TableCell align="center">Weight %</TableCell>
+    <TableCell align="center">Max Score</TableCell>
+    <TableCell align="center">Actions</TableCell>
+  </TableRow>
+</TableHead>
+<TableBody>
+  {criterias.map((criteria) => (
+    <TableRow key={criteria.id}>
+      <TableCell>
+        <Typography variant="body1" fontWeight={500}>
+          {criteria.name}
+        </Typography>
+      </TableCell>
+      <TableCell>
+        <Typography variant="body2" color="text.secondary">
+          {criteria.description || 'No description'}
+        </Typography>
+      </TableCell>
+      <TableCell align="center">
+        <Chip 
+          label={${criteria.weight_percentage}%} 
+          color="secondary" 
+          size="small"
+        />
+      </TableCell>
+      <TableCell align="center">
+        <Chip 
+          label={criteria.max_score} 
+          color="primary" 
+          size="small"
+        />
+      </TableCell>
+      <TableCell align="center">
+        <IconButton onClick={() => handleOpen(criteria)} size="small">
+          <EditIcon color="primary" />
+        </IconButton>
+        <IconButton onClick={() => handleDelete(criteria.id)} size="small">
+          <DeleteIcon color="error" />
+        </IconButton>
+      </TableCell>
+    </TableRow>
+  ))}
+</TableBody>
         </Table>
       </TableContainer>
 
@@ -175,40 +175,51 @@ export default function ManageCriteriaPage() {
             {currentCriteria.id ? 'Edit Criteria' : 'Add New Criteria'}
           </DialogTitle>
           <DialogContent>
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              label="Criteria Name"
-              value={currentCriteria.name}
-              onChange={(e) => setCurrentCriteria({ ...currentCriteria, name: e.target.value })}
-              autoFocus
-              placeholder="e.g., Innovation, Technical Implementation, Design"
-              helperText="A short, descriptive name for this judging criteria"
-            />
-            <TextField
-              margin="normal"
-              fullWidth
-              multiline
-              rows={3}
-              label="Description"
-              value={currentCriteria.description || ''}
-              onChange={(e) => setCurrentCriteria({ ...currentCriteria, description: e.target.value })}
-              placeholder="Describe what judges should look for when scoring this criteria"
-              helperText="Help judges understand what to evaluate"
-            />
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              type="number"
-              label="Maximum Score"
-              value={currentCriteria.max_score}
-              onChange={(e) => setCurrentCriteria({ ...currentCriteria, max_score: parseFloat(e.target.value) })}
-              inputProps={{ min: 1, max: 100, step: 0.5 }}
-              helperText="The highest score a judge can give for this criteria"
-            />
-          </DialogContent>
+  <TextField
+    margin="normal"
+    required
+    fullWidth
+    label="Criteria Name"
+    value={currentCriteria.name}
+    onChange={(e) => setCurrentCriteria({ ...currentCriteria, name: e.target.value })}
+    autoFocus
+    placeholder="e.g., Innovation, Technical Implementation, Design"
+    helperText="A short, descriptive name for this judging criteria"
+  />
+  <TextField
+    margin="normal"
+    fullWidth
+    multiline
+    rows={3}
+    label="Description"
+    value={currentCriteria.description || ''}
+    onChange={(e) => setCurrentCriteria({ ...currentCriteria, description: e.target.value })}
+    placeholder="Describe what judges should look for when scoring this criteria"
+    helperText="Help judges understand what to evaluate"
+  />
+  <TextField
+    margin="normal"
+    required
+    fullWidth
+    type="number"
+    label="Weight Percentage"
+    value={currentCriteria.weight_percentage}
+    onChange={(e) => setCurrentCriteria({ ...currentCriteria, weight_percentage: parseFloat(e.target.value) })}
+    inputProps={{ min: 0, max: 100, step: 0.5 }}
+    helperText="Percentage weight of this criteria (all criteria should total 100%)"
+  />
+  <TextField
+    margin="normal"
+    required
+    fullWidth
+    type="number"
+    label="Maximum Score"
+    value={currentCriteria.max_score}
+    onChange={(e) => setCurrentCriteria({ ...currentCriteria, max_score: parseFloat(e.target.value) })}
+    inputProps={{ min: 1, max: 100, step: 0.5 }}
+    helperText="The highest score a judge can give (e.g., 10 for a 1-10 scale)"
+  />
+</DialogContent>
           <DialogActions>
             <Button onClick={handleClose}>Cancel</Button>
             <Button 
