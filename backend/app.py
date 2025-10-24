@@ -20,9 +20,35 @@ def create_app(config_name='default'):
     CORS(app)
     jwt = JWTManager(app)
     
-    # Create database tables
+    # Create database tables and run migrations
     with app.app_context():
+        from sqlalchemy import text, inspect
+        
+        # Create tables if they don't exist
         db.create_all()
+        
+        # Auto-migration: Add weight_percentage column if it doesn't exist
+        try:
+            inspector = inspect(db.engine)
+            columns = [col['name'] for col in inspector.get_columns('criterias')]
+            
+            if 'weight_percentage' not in columns:
+                print("Running migration: Adding weight_percentage column...")
+                db.session.execute(text("""
+                    ALTER TABLE criterias 
+                    ADD COLUMN weight_percentage FLOAT DEFAULT 10.0;
+                """))
+                db.session.execute(text("""
+                    UPDATE criterias 
+                    SET weight_percentage = 10.0 
+                    WHERE weight_percentage IS NULL;
+                """))
+                db.session.commit()
+                print("✓ Migration complete: weight_percentage column added")
+        except Exception as e:
+            print(f"Migration check: {e}")
+            db.session.rollback()
+        
         # Create admin user if not exists
         if not User.query.filter_by(username='matoke').first():
             admin = User(
