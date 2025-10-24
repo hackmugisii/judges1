@@ -111,34 +111,55 @@ def create_app(config_name='default'):
         
         return jsonify({"msg": "User deleted successfully"})
 
-    # Criteria routes
     @app.route('/api/criteria', methods=['GET'])
-    @jwt_required()
-    def get_criterias():
-        criterias = Criteria.query.filter_by(is_active=True).all()
-        return jsonify([{
-            'id': c.id,
-            'name': c.name,
-            'description': c.description,
-            'max_score': c.max_score
-        } for c in criterias])
-    
+@jwt_required()
+def get_criterias():
+    criterias = Criteria.query.filter_by(is_active=True).all()
+    return jsonify([{
+        'id': c.id,
+        'name': c.name,
+        'description': c.description,
+        'max_score': c.max_score,
+        'weight_percentage': c.weight_percentage  # NEW
+    } for c in criterias])
     @app.route('/api/criteria', methods=['POST'])
-    @jwt_required()
-    def create_criteria():
-        current_user_id = get_jwt_identity()
-        current_user = User.query.get(current_user_id)
+@jwt_required()
+def create_criteria():
+    current_user_id = get_jwt_identity()
+    current_user = User.query.get(current_user_id)
+    
+    if not current_user.is_admin:
+        return jsonify({"msg": "Admin access required"}), 403
         
-        if not current_user.is_admin:
-            return jsonify({"msg": "Admin access required"}), 403
-            
-        data = request.get_json()
-        
-        criteria = Criteria(
-            name=data['name'],
-            description=data.get('description', ''),
-            max_score=float(data.get('max_score', 10.0))
-        )
+    data = request.get_json()
+    
+    # Validate that weight_percentage is provided
+    weight = float(data.get('weight_percentage', 10.0))
+    
+    # Optional: Check if total weights exceed 100%
+    existing_criterias = Criteria.query.filter_by(is_active=True).all()
+    total_weight = sum(c.weight_percentage for c in existing_criterias) + weight
+    
+    if total_weight > 100:
+        return jsonify({"msg": f"Total weight would be {total_weight}%. Cannot exceed 100%"}), 400
+    
+    criteria = Criteria(
+        name=data['name'],
+        description=data.get('description', ''),
+        max_score=float(data.get('max_score', 10.0)),
+        weight_percentage=weight  # NEW
+    )
+    
+    db.session.add(criteria)
+    db.session.commit()
+    
+    return jsonify({
+        'id': criteria.id,
+        'name': criteria.name,
+        'description': criteria.description,
+        'max_score': criteria.max_score,
+        'weight_percentage': criteria.weight_percentage  # NEW
+    }), 201
         
         db.session.add(criteria)
         db.session.commit()
