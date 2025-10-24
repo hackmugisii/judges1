@@ -121,18 +121,63 @@ def create_app(config_name='default'):
         return jsonify({"msg": "User deleted successfully"})
 
     # Criteria routes
-    @app.route('/api/criteria', methods=['GET'])
-    @jwt_required()
-    def get_criterias():
-        criterias = Criteria.query.filter_by(is_active=True).all()
-        return jsonify([{
-            'id': c.id,
-            'name': c.name,
-            'description': c.description,
-            'max_score': c.max_score,
-            'weight_percentage': c.weight_percentage
-        } for c in criterias])
+    # Add this PUT route after your POST route in app.py
+
+@app.route('/api/criteria/<int:id>', methods=['PUT'])
+@jwt_required()
+def update_criteria(id):
+    current_user_id = get_jwt_identity()
+    current_user = User.query.get(current_user_id)
     
+    if not current_user.is_admin:
+        return jsonify({"msg": "Admin access required"}), 403
+    
+    criteria = Criteria.query.get_or_404(id)
+    data = request.get_json()
+    
+    # Validate weight percentage
+    new_weight = float(data.get('weight_percentage', criteria.weight_percentage))
+    
+    # Calculate total weight excluding current criteria
+    existing_criterias = Criteria.query.filter(
+        Criteria.is_active == True,
+        Criteria.id != id
+    ).all()
+    total_weight = sum(c.weight_percentage for c in existing_criterias) + new_weight
+    
+    if total_weight > 100:
+        return jsonify({
+            "msg": f"Total weight would be {total_weight}%. Cannot exceed 100%"
+        }), 400
+    
+    # Update criteria
+    criteria.name = data.get('name', criteria.name)
+    criteria.description = data.get('description', criteria.description)
+    criteria.max_score = float(data.get('max_score', criteria.max_score))
+    criteria.weight_percentage = new_weight
+    
+    db.session.commit()
+    
+    return jsonify({
+        'id': criteria.id,
+        'name': criteria.name,
+        'description': criteria.description,
+        'max_score': criteria.max_score,
+        'weight_percentage': criteria.weight_percentage
+    })
+
+# Also add a route to get total weight summary
+@app.route('/api/criteria/weight-summary', methods=['GET'])
+@jwt_required()
+def get_weight_summary():
+    criterias = Criteria.query.filter_by(is_active=True).all()
+    total_weight = sum(c.weight_percentage for c in criterias)
+    
+    return jsonify({
+        'total_weight': total_weight,
+        'remaining': 100 - total_weight,
+        'is_valid': total_weight <= 100
+    })
     @app.route('/api/criteria', methods=['POST'])
     @jwt_required()
     def create_criteria():
